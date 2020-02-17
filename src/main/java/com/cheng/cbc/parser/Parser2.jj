@@ -1,0 +1,774 @@
+/**
+ * JavaCC template file created by SF JavaCC plugin 1.5.28+ wizard for JavaCC 1.5.0+
+ */
+options
+{
+  STATIC = false;
+}
+
+PARSER_BEGIN(Parser)
+package com.cheng.cbc.parser;
+import java.util.Scanner;
+import java.io.*;
+
+public class Parser
+{
+  public static void main(String args []) throws ParseException
+  {
+    Scanner scanner = new Scanner(System.in);
+    File file = new File("test.c");
+    long fileByteLength = file.length();
+    byte [] content = new byte [(int) fileByteLength];
+    try
+    {
+      FileInputStream fileInputStream = new FileInputStream(file);
+      try
+      {
+        fileInputStream.read(content);
+      }
+      catch (IOException e)
+      {
+        e.printStackTrace();
+      }
+      finally
+      {
+        try
+        {
+          fileInputStream.close();
+        }
+        catch (IOException e)
+        {
+          e.printStackTrace();
+        }
+      }
+    }
+    catch (FileNotFoundException e)
+    {
+      e.printStackTrace();
+    }
+    String string = null;
+    try
+    {
+      string = new String(content, "UTF-8");
+      try
+      {
+        System.out.println(evaluate(string));
+      }
+      catch (ParseException ex)
+      {
+        System.err.println(ex.getMessage());
+      }
+    }
+    catch (UnsupportedEncodingException e)
+    {
+      e.printStackTrace();
+    }
+  }
+
+  static public String evaluate(String src) throws ParseException
+  {
+    Reader reader = new StringReader(src);
+    return new Parser(reader).expr5();
+  }
+}
+
+PARSER_END(Parser)
+
+SPECIAL_TOKEN :
+{
+  < SPACES : ([ " ", "\t", "\r", "\n" ])+ >
+}
+
+SPECIAL_TOKEN :
+{
+  < LINE_COMMENT :
+    "//" (~[ "\n", "\r" ])*
+    (
+      "\n"
+    | "\r\n"
+    | "\r"
+    )? >
+}
+
+MORE :
+{
+  < "/*" > : IN_BLOCK_COMMENT
+}
+
+< IN_BLOCK_COMMENT >
+MORE :
+{
+  < ~[ ] >
+}
+
+< IN_BLOCK_COMMENT >
+SPECIAL_TOKEN :
+{
+  < "*/" > : DEFAULT
+}
+
+TOKEN :
+{
+  < UNSIGNED : "unsigned" >
+| < VOID : "void" >
+| 	< CHAR : "char" >
+| < SHORT : "short" >
+| < INT : "int" >
+| < LONG : "long" >
+| < IMPORT : "import" >
+| < STATIC : "static" >
+| < STRUCT : "struct" >
+| < TYPEDEF : "typedef" >
+| < IF : "if" >
+| < ELSE : "else" >
+| < WHILE : "while" >
+| < DO : "do" >
+| < FOR : "for" >
+}
+
+TOKEN :
+{
+  < INTEGER :	
+    [ "1"-"9" ] ([ "0"-"9" ])* ("U")? ("L")?
+  | 	"0" [ "x", "X" ] ([ "0"-"9", "a"-"f" ])+ ("U")? ("L")?
+  | 	"0" ([ "0"-"7" ])* ("U")? ("L")? 
+  >
+}
+
+TOKEN :
+{
+  < IDENTIFIER : [ "a"-"z", "A"-"Z", "_" ] ([ "a"-"z", "A"-"Z", "_", "0"-"9" ])* >
+}
+
+MORE :
+{
+  < "\"" > : IN_STRING
+}
+
+< IN_STRING >
+MORE :
+{
+  < (~[ "\"", "\\", "\n", "\r" ])+ >
+| 	< "\\" ([ "0"-"7" ])
+    {
+      3
+    }
+  >
+| 	< "\\" ~[ ] >
+}
+
+< IN_STRING >
+TOKEN :
+{
+  < STRING : "\"" > : DEFAULT
+}
+
+MORE :
+{
+  < "'" > : IN_CHAR
+}
+
+< IN_CHAR >
+MORE :
+{
+  < ~[ "'", "\\", "\n", "\r" ] > : CHARACTER_TERM
+| < "\\" ([ "0"-"7" ])
+    {
+      3
+    }
+  > : CHARACTER_TERM
+| < "\\" ~[ ] > : CHARACTER_TERM
+}
+
+< CHARACTER_TERM >
+TOKEN :
+{
+  < CHARACTER : "'" > : DEFAULT
+}
+
+String name() :
+{
+  Token name;
+}
+{
+  name = < IDENTIFIER >
+  {
+    return name.image;
+  }
+}
+
+void storage() :
+{}
+{
+  [
+    < STATIC >
+    {
+      System.out.println("static");
+    }
+  ]
+}
+
+String typeref_base() :
+{
+}
+{
+  < VOID >
+  {
+    return "void";
+  }
+| < CHAR >
+  {
+    return "char";
+  }
+| < SHORT >
+  {
+    return "short";
+  }
+| < INT >
+  {
+    return "int";
+  }
+| LOOKAHEAD(2)
+  < UNSIGNED > < CHAR >
+  {
+    return "unsigned char";
+  }
+| LOOKAHEAD(2)
+  < UNSIGNED > < SHORT >
+  {
+    return "unsigned short";
+  }
+| LOOKAHEAD(2)
+  < UNSIGNED > < INT >
+  {
+    return "unsigned int";
+  }
+| < UNSIGNED > < LONG >
+  {
+    return "unsigned long";
+  }
+}
+
+String typeref() :
+{
+  String type;
+  Token i;
+}
+{
+  type = typeref_base()
+  (
+    LOOKAHEAD(2)
+    "[" "]"
+    {
+      type += "[]";
+    }
+  | "[" i = < INTEGER > "]"
+    {
+      type += "[" + i.image + "]";
+    }
+  | "*"
+    {
+      type += "*";
+    }
+  )*
+  {
+    return type;
+  }
+}
+
+String type() :
+{
+  String type;
+}
+{
+  type = typeref()
+  {
+    return type;
+  }
+}
+
+void defvars() :
+{}
+{
+  storage() type() name() ";"
+}
+
+void slot() :
+{
+  String type, name;
+}
+{
+  type = type() name = name()
+  {
+    System.out.println(type + " " + name);
+  }
+}
+
+void member_list() :
+{}
+{
+  "{"
+  (
+    slot() ";"
+  )*
+  "}"
+}
+
+void defstruct() :
+{
+  String name;
+}
+{
+  < STRUCT > name = name() member_list() ";"
+  {
+    System.out.println("struct " + name);
+  }
+}
+
+void typedef() :
+{
+  String type;
+  Token id;
+}
+{
+  < TYPEDEF > type = typeref() id = < IDENTIFIER > ";"
+  {
+    System.out.println(id + " = " + type);
+  }
+}
+
+String param() :
+{
+  String strtype, strname;
+}
+{
+  strtype = type() strname = name()
+  {
+    return strtype + " " + strname;
+  }
+}
+
+String fixedparams() :
+{
+  String param, result = "";
+}
+{
+  param = param()
+  {
+    result += param;
+  }
+  (
+    LOOKAHEAD(2)
+    "," param = param()
+    {
+      result += "," + param;
+    }
+  )*
+  {
+    return result;
+  }
+}
+
+String params() :
+{
+  String fixedParams, result = "";
+}
+{
+  fixedParams = fixedparams()
+  {
+    result += fixedParams;
+  }
+  [
+    "," "..."
+    {
+      result += ",...";
+    }
+  ]
+  {
+    return result;
+  }
+}
+
+String primary() :
+{
+  String primary;
+  Token token;
+}
+{
+  token = < INTEGER >
+  {
+    return token.image;
+  }
+| token = < CHARACTER >
+  {
+    return token.image;
+  }
+| token = < STRING >
+  {
+    return token.image;
+  }
+| token = < IDENTIFIER >
+  {
+    return token.image;
+  }
+| "(" primary = expr() ")"
+  {
+    return "(" + primary + ")";
+  }
+}
+
+String expr1() :
+{
+  String term, expr = "";
+}
+{
+  term = term()
+  {
+    expr += term;
+  }
+  (
+    "*" term = term()
+    {
+      expr += "*" + term;
+    }
+  | "/" term = term()
+    {
+      expr += "/" + term;
+    }
+  | "%" term = term()
+    {
+      expr += "%" + term;
+    }
+  )*
+  {
+    return expr;
+  }
+}
+
+String expr2() :
+{
+  String expr = "", expr1;
+}
+{
+  expr1 = expr1()
+  {
+    expr += expr1;
+  }
+  (
+    "+" expr1 = expr1()
+    {
+      expr += "+" + expr1;
+    }
+  | "-" expr1 = expr1()
+    {
+      expr += "-" + expr1;
+    }
+  )*
+  {
+    return expr;
+  }
+}
+
+String expr3() :
+{
+  String expr2, expr3 = "";
+}
+{
+  expr2 = expr2()
+  {
+    expr3 += expr2;
+  }
+  (
+    ">>" expr2 = expr2()
+    {
+      expr3 += ">>" + expr2;
+    }
+  | "<<" expr2 = expr2()
+    {
+      expr3 += "<<" + expr2;
+    }
+  )*
+  {
+    return expr3;
+  }
+}
+
+String expr4() :
+{
+  String expr3, expr4 = "";
+}
+{
+  expr3 = expr3()
+  {
+    expr4 += expr3;
+  }
+  (
+    "&" expr3 = expr3()
+    {
+      expr4 += "&" + expr3;
+    }
+  )*
+  {
+    return expr4;
+  }
+}
+
+String expr5() :
+{
+  String expr4, expr5 = "";
+}
+{
+  expr4 = expr4()
+  {
+    expr5 += expr4;
+  }
+  (
+    "^" expr4 = expr4()
+    {
+      expr5 += "^" + expr4;
+    }
+  )*
+  {
+    return expr5;
+  }
+}
+
+String expr10() :
+{
+  String expr, expr9, expr10, result = "";
+}
+{
+  expr9 = expr5()
+  {
+    result += expr1;
+  }
+  [
+    "?" expr = expr() ":" expr10 = expr10()
+    {
+      result += "?" + expr + ":" + expr10;
+    }
+  ]
+  {
+    return result;
+  }
+}
+
+String postfix() :
+{
+  String postfix, expr;
+}
+{
+  postfix = primary()
+  (
+    "++"
+    {
+      postfix += "++";
+    }
+  | "--"
+    {
+      postfix += "--";
+    }
+  | "[" expr = expr() "]"
+    {
+      postfix += "[" + expr + "]";
+    }
+  )*
+  {
+    return postfix;
+  }
+}
+
+String unary() :
+{
+  String unary;
+}
+{
+  unary = postfix()
+  {
+    return unary;
+  }
+}
+
+String term() :
+{
+  String type, term, unary;
+}
+{
+  LOOKAHEAD("(" type())
+  "(" type = type() ")" term = term()
+  {
+    return "(" + type + ")" + term;
+  }
+| unary = unary()
+  {
+    return unary;
+  }
+}
+
+String opassign_op() :
+{
+  Stirng op;
+}
+{
+  (
+    op = "+="
+  | op = "-="
+  | op = "*="
+  | op = "/="
+  | op = "%="
+  | op = "&="
+  | op = "|="
+  | op = "^="
+  | op = "<<="
+  | op = ">>="
+  )
+  {
+    return op;
+  }
+}
+
+String expr() :
+{
+  String term, expr, op;
+}
+{
+  LOOKAHEAD(term() "=")
+  term = term() "=" expr = term()
+  {
+    return term + "=" + expr;
+  }
+| LOOKAHEAD(term() opassign_op())
+  term = term() op = opassign_op() expr = expr()
+  {
+    return term + op + expr;
+  }
+| expr = expr10()
+  {
+    return expr;
+  }
+}
+
+String stmt() :
+{
+  String stmt;
+}
+{
+  ";"
+  {
+    return ";";
+  }
+| LOOKAHEAD(2)
+  stmt = expr() ";"
+  {
+    return stmt + ";";
+  }
+| stmt = block()
+  {
+    return stmt;
+  }
+}
+
+String stmts() :
+{
+  String stmt, stmts = "";
+}
+{
+  (
+    stmt = stmt()
+    {
+      stmts += stmt;
+    }
+  )*
+  {
+    return stmts;
+  }
+}
+
+String block() :
+{
+  String stmts;
+}
+{
+  "{" stmts = stmts() "}"
+  {
+    return "{" + stmts + "}";
+  }
+}
+
+void defun() :
+{
+  String type, name, params, block;
+}
+{
+  storage() type = typeref() name = name() "(" params = params() ")" block = block()
+  {
+    System.out.println(type + " " + name + "(" + params + ")");
+    System.out.println(block);
+  }
+}
+
+String import_semt() :
+{
+  String name, stmt = "";
+}
+{
+  < IMPORT > name = name()
+  {
+    stmt += "import " + name;
+  }
+  (
+    "." name = name()
+    {
+      stmt += "." + name;
+    }
+  )*
+  ";"
+  {
+    return stmt + ";";
+  }
+}
+
+void import_semts() :
+{
+  String stmt, stmts = "";
+}
+{
+  (
+    stmt = import_semt()
+    {
+      stmts += stmt + "\n";
+    }
+  )*
+  {
+    System.out.println(stmts);
+  }
+}
+
+void top_defs() :
+{}
+{
+  (
+    LOOKAHEAD(storage() typeref() < IDENTIFIER > "(")
+    defun()
+  | defvars()
+  | defstruct()
+  | typedef()
+  )*
+}
+
+void compilation_unit() :
+{}
+{
+  import_semts() top_defs() < EOF >
+}
+
+String compile() :
+{
+  Token x, y;
+}
+{
+  compilation_unit()
+  {
+    return "hello";
+  }
+}
